@@ -1,0 +1,7 @@
+				Microservices
+
+1.JDK 17 | 11
+  -Open JDK or Oracle JDK
+2.IDE - Intelliji Community
+
+3.Docker Desktop
