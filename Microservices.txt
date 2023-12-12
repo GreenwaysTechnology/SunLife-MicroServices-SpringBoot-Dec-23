@@ -373,6 +373,367 @@ Application Infrastructure:
 
 4.Service Per Team
 .....................................................................................
+			    Design patterns in Microservices
+....................................................................................
+
+Application Architecture Pattern
+   For building n-tier client server distributed application.
+
+-Monolithic architecture
+-Microservice architecture
+
+Decomposition Pattern -Y scalling
+
+1.Decompose by business capability 	 
+2.Decompose by subdomain
+3.SelfContained Service
+4.Service Per Team
+
+
+MicroService Architecture Pattern------>Depcompostion Pattern
+
+Decompose by business capability 
+
+If you are going to build online store.
+
+Business capability:
+Product Catalog Management
+Inventory Management
+Order Management
+Delivery Management.
+
+Alternate Pattern
+
+Decompose by SubDomain:
+ Decompose the problem based on DDD principles.
+
+....................................................................................
+				Data Management
+....................................................................................
+
+Core Pattern:
+1.Database Per Service Pattern
+2.Shared Database
+
+Note:
+  if you take any data related patterns, "Transactions" are very important.
+
+
+1.Database Per Service Pattern leads/succeeds other patterns
+  Domain Event
+  Event Sourcing 
+  Saga - Transaction
+  CQRS
+  API Composition
+ 
+..................................................................................
+	    Advance Data Management Pattern -Transactional Messaging Pattern   
+..................................................................................
+
+1.Transactional outbox
+    2.Transactional log tailing
+     or
+    3.Polling publisher
+
+   2.1.Idemponent Consumer
+.....................................................................................
+			Communication Style Patterns
+...................................................................................
+
+Service = Mini Application
+
+MiniApplication = Collection of Programs
+
+Collection of programs in Java = Collections of classes
+
+Collections of classes = Collections Objects.
+
+Object/Class = Collection of  state and behaviour
+
+State = data
+Behaviour=methods
+
+Object = methods
+
+methods = API
+
+API will DO three things
+
+1.write - update,remove,insert
+2.read
+3.process
+
+class OrderService {
+
+   @Autowrited
+   private OrderRepository orderRepo;
+   //API
+   public List<Order> findAll(){
+	orderRepo.findAll()
+   }
+ 
+}
+
+Types of API:
+1.local api
+   api which are called with in same runtime by other apis
+2.remote api
+  api which are called outside runtime via networks 
+
+How to build remote api?
+
+ Based on protocals
+
+1.HTTP Protocal.
+
+ if you design your api based on HTTP protcal, those apis are called as "WebServices"
+
+Web Service:
+  RESTFull WebServices
+
+REST API = Program
+
+In java => classes
+
+In Web Services classes are called "End Points"
+
+In Micro services -Services can be  represented as "WebServices"
+
+Rest WebService------>http-----RestWebservice => HTTP based Microservice
+
+Rest WebService------>http-----Graphql => HTTP based Microservice
+
+Rest WebService------>http/2 over tcp------GRpc Service=> TCP based Microservice
+
+Rest Web Service ---->TCP/MOM-------------->Messaging Service -Middlewares
+
+Communication Sytle patterns:
+
+1.RPI patterns
+   REST,gRPC,Apache Thrift - RPI implementations
+2.Messaging
+   Any Messaging middlewares - RabbitMQ,IBM MQ,MicroSoft MQ - MQTT,AMQP
+   Streaming platforms - Apache Kafka,Confluent Kafka
+   2.1.Idemponent Consumer
+3.Domain Specfic Protocal
+   SMTP - Mail Service   
+
+.....................................................................................
+			   Deployment Patterns
+.....................................................................................
+
+Once the services(applications) are ready, we can move the application into production.
+
+Production Related Patterns:
+
+Deployment Environment/Plattforms
+
+1.Bare Metal 
+    Where as physical hardware, and operating system, Where we can provision our application.
+    If you deploy java application.
+
+  OS: Linux
+  JRE- 17
+  WebContainer -Tomcat
+  Databases -MySql
+  Streaming Platforms-Kafka
+   
+2.Virutal Machine 
+   Oracle Virtual box 
+    on VM , you can install os-linux
+  JRE- 17
+   WebContainer -Tomcat
+   Databases -MySql
+   Streaming Platforms-Kafka
+
+3.Containerized Deployment
+    It is lightweight vm - Docker and Kubernets
+   JRE- 17
+   WebContainer -Tomcat
+   Databases -MySql
+   Streaming Platforms-Kafka
+  
+4.Cloud 
+   ->VM /container/bare 
+  you can just deploy your app only,
+  cloud may give you all softwares for you...
+
+
+  "Cloud with containers are most preferable deployment for microservices"
+
+Design patterns:
+
+Bare Metal:
+ 1.Multiple services instances per host
+ 2.Service instance per host
+VM
+ 1.Service instance Per VM
+Container
+ 1.Service instance per Container
+Cloud
+ 1.server less deployment
+ 2.Service deployment platform
+ 3.container and cloud
+
+			      
+		if your app deployement is in container 
+				  or 
+    			       in cloud
+				  or 
+			   Container with cloud
+				 or 
+			   in any Virtualized Env
+
+if any micro service(application) is running in containerized env like kubernets(docker).
+
+Challanges:
+ 1.suppose the application is accessed by other application or external application
+   we need to communicate the application with help of "host:port".
+ if application is running Virtualized env, "host and port" is not static,it would be dynamic.
+
+ if it is dynamic then how other microservices, and external application, how they can communicate.
+			
+To solve the problem of identifying the services which are running in Virtualized env
+ 
+				Advanced Communication Patterns
+				(Service Registry and Discovery)
+
+
+When we apply this pattern, services never communicate "directly", because they dont know each other due to "dynamic location",so they use broker to communicate, broker will have all service information-Service Registry
+
+Service Registry Patterns:
+
+1.Client side service Discovery
+2.Server-side service Discovery
+   ->Service Registry
+  	->Self Registration
+   	->ThridParty Registration
+
+.....................................................................................
+                     Services are running in Virtualized Env
+		     Services are talking via Service Registry
+		What if i any service is down / Slow / Throwing Exception
+					
+Microservices provides a Design patterns to handle failures and slow calls
+
+			 Service Reliablity Patterns
+
+1.Timeout Pattern
+2.Bulk Head Pattern
+3.Retry Pattern
+4.Circuit Breaker Patterns
+.....................................................................................
+			    Configuration Data and Its patterns
+
+
+Every application which requires configuration data,the configuration data may be connection strings,api tokens,application settings etc...
+
+In Java application, configuration data is kept inside properties or yml files...
+
+What if in micro serivces, the configuration is need to be shared across the application?
+
+We have design pattern to centeralize configuration data/information.
+
+1.Microservice Chassis
+2.Service Templates
+3.Externalized COnfiguration
+.....................................................................................
+		   Micro services are ready in production
+			Now we need to expose to
+		 other Applications- User interface applications
+
+Microservices provide you a design pattern, called
+
+External API patterns:
+
+1.API Gate ways
+  2.Back End for FrontEnd
+
+.....................................................................................
+		     Micro services are ready in production
+		We have exposed our microservices via API Gateways
+			  How to secure them?
+
+Security Patterns
+
+1.Access Tokens
+   -Authentecation
+   -Authrozation
+   -SSL
+   -Policies
+....................................................................................
+			Now your Micro service is in Production
+				Next what should i do
+			     Your App in Maintaince 
+
+Monitor Your apps......
+
+Observaablity Design patterns:
+
+1.Log Management/Aggregation Pattern
+2.Application Metrics Pattern
+3.Audit Logging pattern
+4.Distributed Tracing
+5.Exception Tracker Pattern
+6.Health Check API pattern
+.....................................................................................
+			How to apply/select pattern
+.....................................................................................
+
+Pattern Elements
+
+1.Context
+2.Problem
+3.Forces
+4.Solution
+5.Resulting Context
+6.Related Patterns
+7.Anti patterns
+8.Implementation using program - Spring.
+.....................................................................................
+			Microservices Implementations
+....................................................................................
+
+Microservice is architecture that proposes many design patterns and principles, it is language and platform independant.
+
+Java Microservices:
+..................
+ Java technology provides various microservices pattern implementations.
+
+
+Spring boot
+   Spring configuration system.
+ Spring app can be configured
+  1.XML - Legacy way of configuration.
+  2.Java Config
+   2.1.Manual Java Config
+   2.2.Auto Java Config
+        -Spring Boot
+
+1.Spring Cloud
+   It is  a project(module) brought into spring framework echo system
+
+2.Quarkus
+
+3.Eclplise Vertx
+
+4.AKKA with Microservices/Play
+
+5.Micronaut
+....................................................................................
+			Spring Cloud and implementations
+...................................................................................
+
+
+
+
+
+
+
+
+
+
+
 
 
 
