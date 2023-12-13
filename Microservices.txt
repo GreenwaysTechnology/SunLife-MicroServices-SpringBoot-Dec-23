@@ -489,7 +489,7 @@ How to build remote api?
  if you design your api based on HTTP protcal, those apis are called as "WebServices"
 
 Web Service:
-  RESTFull WebServices
+  RESTFull WebServices,SOAP WebServices
 
 REST API = Program
 
@@ -625,7 +625,6 @@ Microservices provides a Design patterns to handle failures and slow calls
 .....................................................................................
 			    Configuration Data and Its patterns
 
-
 Every application which requires configuration data,the configuration data may be connection strings,api tokens,application settings etc...
 
 In Java application, configuration data is kept inside properties or yml files...
@@ -668,7 +667,7 @@ Security Patterns
 
 Monitor Your apps......
 
-Observaablity Design patterns:
+Observablity Design patterns:
 
 1.Log Management/Aggregation Pattern
 2.Application Metrics Pattern
@@ -724,11 +723,451 @@ Spring boot
 			Spring Cloud and implementations
 ...................................................................................
 
+if you are new spring echo system(old spring,spring boot),First you need to learn spring(core,web,data).
+
+
+Micro service Application arch in Spring:
+..........................................
+
+
+	   Spring cloud Config  Spring Cloud CircuitBreaker Spring Cloud Discovery ..
+
+		|                     |                       |
+
+	         (Microservice Pattern language implementations)  			    
+			       Spring Cloud		
+				    |		  		 	                       .................................................
+		  Spring Core,Spring Web,Spring Data - API Development
+				   |
+				Spring Boot
+			           |
+			     Spring Framework
+
+.....................................................................................
+
+Steps:
+
+1.Understanding REST API(Could be any api-graphql,grpc,MoM) development ,with data sources(mysql,postresql,nosql databases)
+
+
+2.Pick up design pattern.
+.....................................................................................
+				  Data 
+			Event Sourcing and Domain Events
+			   Event Driven Microservices
+....................................................................................
+
+An Event-microservices architecture is an approach to software development where decoupled microservices are designed to communicate with one another when events occur.
+
+Event sourcing
+Domain event - Inspired From Domain Driven Design
+ 
+  Both are same , which are different from only based model we select.
+if you select DDD, you can follow designing "events" using domain events.
+
+
+1.Context
+2.Problem
+3.Forces
+4.Solution
+5.Resulting Context
+6.Related Patterns
+
+1.Context
+  A service "command" typically needs to create/update/delete aggregates in the database and send messages/events to a message broker.
+
+Note: 
+command-verb-method
+aggregates - A graph of objects that can be treated as a unit. (From DDD)
+
+ "Event Sourcing is an alternative way to persist data". In contrast with "state-oriented" persistence that only keeps the latest version of the entity state, Event sourcing stores each state mutation as separate record called event.
+
+When user starts interaction , when making order...
+   
+ Order :                 Order :                Order
+  Number : 1220            Number : 1220         Number : 1220
+  status : STARTED  ---->  status :PENDING ----> status: CONFIRMED | REJECTED
+  total : 200               total : 200          total : 200
+  paid : 0                  paid: 0              paid : 5000
+   
+  
+UPDATE QUERY - status=STARTED
+UPDATE QUERY - status=PENDING
+UPDATE QUERY - status=CONFIRMED
+
+History of Transcation
+
+started    pending     confirmed
+ |
+------------------------------------------------------------------
+ |          |              |
+   
+log      log              log  ------>EVENT store -can be any db or brokers
+			  
+
+Problem
+ How to atomically update the database and send messages to a message broker?
+
+
+Solution
+   A good solution to this problem is to use event sourcing. Event sourcing persists the state of a business entity such an Order or a Customer as a sequence of state-changing events.
+
+Resulting context
+
+1.It solves one of the key problems in implementing an event-driven architecture and makes it possible to reliably publish events whenever state changes.
+
+2.Because it persists events rather than domain objects, it mostly avoids the object‑relational impedance mismatch problem.
+
+3.It provides a 100% reliable audit log of the changes made to a business entity
+ It makes it possible to implement temporal queries that determine the state of an  entity at any point in time.
+
+4.Event sourcing-based business logic consists of loosely coupled business entities that exchange events. This makes it a lot easier to migrate from a monolithic application to a microservice architecture
+
+Related patterns
+..................
+1.The Saga and Domain event patterns create the need for this pattern.
+2.The CQRS must often be used with event sourcing.
+3.Event sourcing implements the Audit logging pattern.
 
 
 
+Eventsourcing with "eventStore as Database table"
+.................................................
 
 
+Implementation:
+
+Use Case:
+
+Mr Subramanian has a shop
+He is sells electrnic items like mobile phones, laptops etc
+He wants to keep track of the stock in his shop.
+
+
+App functionality:
+
+1.Add new stock
+2.Remove existing stock
+3.find current stock of particular item.
+
+Initally this app built using traditional way : without event sourcing pattern.
+
+There is a table stock table , when ever new product added stock is added or when ever product is removed(sold), stock is updated.
+
+when ever stock is added or removed current state updated.
+
+This same operation is done by another co worker of subramanian who is mr Ram.
+
+One day Subramanian got doubt something went wrong in the stock, now he realized existing system cant track what happened.
+ when ever new stock is added or removed existing one, we cant track it.
+
+He found a soultion to sove this issue by "Event Sourcing Pattern"
+
+You can capture user events and add them in "Event Store"
+
+Modling Events:
+"StockAddedEvent"
+"StockRemovedEvent"
+ 
+You can store these events in relational database or event platforms like kafka.
+
+Steps:
+
+2.create Spring boot project...
+
+pom.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.2.0</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.sunlife</groupId>
+	<artifactId>eventsourcing</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>eventsourcing</name>
+	<description>Demo project for Spring Boot</description>
+	<properties>
+		<java.version>17</java.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+
+
+application.yml
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+
+   jpa:
+      database-platform: org.hibernate.dialect.H2Dialect
+
+   h2:
+     console:
+       enabled: true
+       path: /h2
+
+....
+Stock.java
+package com.sunlife.eventsourcing;
+
+import lombok.Data;
+
+@Data
+public class Stock {
+    private String name;
+    private int quantity;
+    private String user;
+}
+
+Event: Record
+package com.sunlife.eventsourcing;
+
+public interface StockEvent {
+}
+
+package com.sunlife.eventsourcing;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class StockAddedEvent implements StockEvent {
+    private  Stock stockDetails;
+}
+
+package com.sunlife.eventsourcing;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Builder
+@Data
+public class StockRemovedEvent implements StockEvent {
+    private Stock stockDetails;
+}
+.....................
+Repository:
+ -Store Stock Information
+ -Stock Event information
+
+package com.sunlife.eventsourcing;
+
+import jakarta.persistence.Entity;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+public class EventStore {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long eventId;
+    private String eventType;
+    private String entityId;
+    private String eventData;
+    private LocalDateTime eventTime;
+}
+
+package com.sunlife.eventsourcing;
+
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+
+@Repository
+public interface EventRepository extends CrudRepository<EventStore, Long> {
+
+    Iterable<EventStore> findByEntityId(String entityId);
+
+    Iterable<EventStore> findByEntityIdAndEventTimeLessThanEqual(String entityId, LocalDateTime date);
+}
+
+....
+package com.sunlife.eventsourcing;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+
+@Service
+public class EventService {
+      @Autowired
+    private EventRepository repository;
+
+    public void addEvent(StockAddedEvent event) throws JsonProcessingException {
+        EventStore eventStore = new EventStore();
+        eventStore.setEventData(new ObjectMapper().writeValueAsString(event.getStockDetails()));
+        eventStore.setEventType("STOCK_ADDED");
+        eventStore.setEntityId(event.getStockDetails().getName());
+        eventStore.setEventTime(LocalDateTime.now());
+        repository.save(eventStore);
+    }
+
+    public void addEvent(StockRemovedEvent event) throws JsonProcessingException {
+        EventStore eventStore = new EventStore();
+        eventStore.setEventData(new ObjectMapper().writeValueAsString(event.getStockDetails()));
+        eventStore.setEventType("STOCK_REMOVED");
+        eventStore.setEntityId(event.getStockDetails().getName());
+        eventStore.setEventTime(LocalDateTime.now());
+        repository.save(eventStore);
+    }
+
+    public Iterable<EventStore> fetchAllEvents(String name) {
+        return repository.findByEntityId(name);
+    }
+
+    public Iterable<EventStore> fetchAllEventsTillDate(String name, LocalDateTime date) {
+               return repository.findByEntityIdAndEventTimeLessThanEqual(name, date);
+
+    }
+}
+
+Controller:
+
+package com.sunlife.eventsourcing;
+
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.gson.Gson;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@RestController
+public class StockController {
+    @Autowired
+    private EventService eventService;
+
+    @PostMapping("/stock")
+    public void addStock(@RequestBody Stock stockRequest) throws JsonProcessingException {
+        StockAddedEvent event = StockAddedEvent.builder().stockDetails(stockRequest).build();
+        eventService.addEvent(event);
+    }
+
+    @DeleteMapping("/stock")
+    public void removeStock(@RequestBody Stock stock) throws JsonProcessingException {
+        StockRemovedEvent event = StockRemovedEvent.builder().stockDetails(stock).build();
+        eventService.addEvent(event);
+    }
+
+    @GetMapping("/stock")
+    public Stock getStock(@RequestParam("name") String name) throws JsonProcessingException {
+        Iterable<EventStore> events = eventService.fetchAllEvents(name);
+        Stock currentStock = new Stock();
+        currentStock.setName(name);
+        currentStock.setUser("NA");
+        for (EventStore event : events) {
+            Stock stock = new Gson().fromJson(event.getEventData(), Stock.class);
+            if (event.getEventType().equals("STOCK_ADDED")) {
+                currentStock.setQuantity(currentStock.getQuantity() + stock.getQuantity());
+            } else if (event.getEventType().equals("STOCK_REMOVED")) {
+                currentStock.setQuantity(currentStock.getQuantity() - stock.getQuantity());
+            }
+        }
+        return currentStock;
+    }
+
+    @GetMapping("/events")
+    public Iterable<EventStore> getEvents(@RequestParam("name") String name) throws JsonProcessingException {
+        Iterable<EventStore> events = eventService.fetchAllEvents(name);
+        return events;
+    }
+
+    //History of events.
+    @GetMapping("/stock/history")
+    public Stock getStockUntilDate(@RequestParam("date") String date, @RequestParam("name") String name) throws JsonProcessingException {
+
+        String[] dateArray = date.split("-");
+
+        LocalDateTime dateTill = LocalDate.of(Integer.parseInt(dateArray[0]), Integer.parseInt(dateArray[1]), Integer.parseInt(dateArray[2])).atTime(23, 59);
+
+
+        Iterable<EventStore> events = eventService.fetchAllEventsTillDate(name, dateTill);
+
+        Stock currentStock = new Stock();
+
+        currentStock.setName(name);
+        currentStock.setUser("NA");
+
+        for (EventStore event : events) {
+
+            Stock stock = new Gson().fromJson(event.getEventData(), Stock.class);
+
+            if (event.getEventType().equals("STOCK_ADDED")) {
+
+                currentStock.setQuantity(currentStock.getQuantity() + stock.getQuantity());
+            } else if (event.getEventType().equals("STOCK_REMOVED")) {
+
+                currentStock.setQuantity(currentStock.getQuantity() - stock.getQuantity());
+            }
+        }
+
+        return currentStock;
+
+    }
+
+
+}
 
 
 
