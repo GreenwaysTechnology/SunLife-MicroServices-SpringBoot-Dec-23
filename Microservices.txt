@@ -1169,6 +1169,756 @@ public class StockController {
 
 }
 
+How to test;
+
+POST localhost:8080/stock
+
+{
+    "name":"IPhone",
+    "quantity":10,
+    "addedBy":"Ram"
+}
+
+
+GET localhost:8080/events?name=IPhone
+
+[
+    {
+        "eventId": 4,
+        "eventType": "STOCK_ADDED",
+        "entityId": "IPhone",
+        "eventData": "{\"name\":\"IPhone\",\"quantity\":34,\"user\":null}",
+        "eventTime": "2023-12-13T17:19:32.961802"
+    },
+    {
+        "eventId": 5,
+        "eventType": "STOCK_ADDED",
+        "entityId": "IPhone",
+        "eventData": "{\"name\":\"IPhone\",\"quantity\":34,\"user\":null}",
+        "eventTime": "2023-12-13T17:19:50.424197"
+    },
+    {
+        "eventId": 6,
+        "eventType": "STOCK_ADDED",
+        "entityId": "IPhone",
+        "eventData": "{\"name\":\"IPhone\",\"quantity\":10,\"user\":null}",
+        "eventTime": "2023-12-13T17:21:26.872839"
+    }
+]
+
+As of now how to store events with "Relational Database".
+.....................................................................................
+		  EventSourcing with External Events Store platforms
+.....................................................................................
+
+1.Kafka
+2.eventStoreDb
+3.CloudEventStore
+4.Eventuate Tram
+
+Kafka:
+.....
+
+What is Kafka?
+  Apache Kafka is an open-source distributed event streaming platform.
+
+What is Event?
+   An Event is any type of action,incident,or change are "happening" or "just happened"
+for eg:
+  Now i am typing,Now i am teaching - happening
+  Just i had coffee,Just i received mail, just i clicked a link, just i searched product - happened.
+
+ "An Event is just remainder or notification of  your happenings or happened"
+
+Events In the Softwares Systems:
+................................
+Every Software system has concept of "logs"
+
+Log:
+  Recording current informations.
+ Logs are used in software to record activities of code.
+
+...webserver initalize.... time.....
+...webserver assigns port....
+...webserver assigns host...
+
+Logs are used to tracking,debuging,fixing errors etc..... 
+
+
+Imgaine i need  somebody or somthing should record every activity of my life from the early moring when i get up and till bed.
+
+  There is a system to record every events of your life that is called 
+			      Kafka
+
+	 Kafka is Event Processing Software , which stores and process events
+...................................................................................
+.....................................................................................
+			Kafka Basic  Architecture
+.....................................................................................
+
+How kafka has been implemented?
+
+   "Kafka is a software"
+   "Kafka is a file(Commit log file) processing software
+   "Kafka is written in java and scala" - Kafka is just java application
+   "In order to run Kafka we need JVM"
+
+How event is represented into kafka?
+
+	Event is just a message.
+        Every message has its own arch.
+        In Kafka the Event/Message is called as "Record".
+		Event(Record)
+
+Event====>Record----------Kafka---will store into log file...
+.....................................................................................
+			 Sending Messages(Events) to Broker
+.....................................................................................	
+				Topics
+....................................................................................
+
+What is Topic?
+  There are lot of events, we need to organize them in the system
+  Apache Kafka's most fundamental unit of organization is the topic.
+
+ Topic is just like table in the relational database.
+
+  As we discussed already, kafka just stores events in the log files.
+
+  We never write events into log file directly.
+
+  As a developer we caputure events, write them into "topic" , kafka writes into log file from the topic.
+
+  Topic is log of events, logs are easy to undestand
+
+ Topic is just simple data structure with well known semantics, they are append only.
+
+ When ever we write a message, it always goes on the end.
+
+ When you read message, from the logs, by "Seeking offset in the log".
+
+ Logs are fundamental durable things, Traditional Messaging systems have topics and queues which stores messages temporarily to buffer them between source and designation.
+
+ Since topics are logs, which always permenant.
+
+ You can delete directly log files not but not messages, but you purge messages.
+
+ You can store logs as short as to as long as years or even you can retain messages indefintely.
+
+Partition:
+..........
+
+ Breaking topic into multiple units called partitions.
+
+Segments:
+  Each partitions is broken up into multiple log files...
+.....................................................................................
+				 Kafka Broker
+.....................................................................................
+
+It is node or process which host kafka application, kafka app is java application.
+
+if you run multiple kakfa process(jvms) on single host or mutliple host or inside vm or containers... : cluster.
+
+Cluster means group of kafka process called broker.
+
+Kafka has two software:
+.......................
+
+1.Data plane - Where actual records are stored - Brokers
+2.Control Plane - which manages cluster- Cluster Manager
+
+Control Plane:
+1.Zookeeper - traditional control plan software.
+2.KRaft- modern control plan software
+.....................................................................................
+
+Kafka Distribution:
+
+1.Apache Kafka - core kafka -open source
+2.Confluent Kafka - Confluent is company who is running by kafka creators, who built Enter prise kafka - community,enterprise...
+.....................................................................................
+
+How to work with kafka?
+
+1.You kafka broker
+2.You need application written in any language - can talk to kafka
+
+Kafka provides cli tools to learn kafka core features, publishing,consuming etc....
+
+
+How to setup kafka?
+
+1.Desktop
+   Linux,windows
+2.Docker 
+3.Cloud
+.....................................................................................
+			Spring and Kafka - Event Driven Microservices
+.....................................................................................
+
+Objective:
+  Event Sourcing with Kafka..
+
+Publish event into kafka broker...
+
+Steps:
+
+1.start kafka.
+
+docker-compose  docker-compose-confl.yml up
+
+
+2.Add kafka spring dependency
+       <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+3.KafkaTemplate
+   Object is used to publish event into kafka Topic.
+
+4.application.yml
+spring:
+  kafka:
+    producer:
+      bootstrap-servers: localhost:9092
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  h2:
+    console:
+      enabled: true
+      path: /h2
+
+
+5.Coding:
+
+package com.sunlife.eventsourcing;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+@Service
+public class EventService {
+
+    @Autowired
+    private KafkaTemplate<String, Object> template;
+
+    public void addEvent(StockAddedEvent event) throws JsonProcessingException {
+        EventRecord eventRecord = new EventRecord();
+        eventRecord.setEventData(new ObjectMapper().writeValueAsString(event.getStockDetails()));
+        eventRecord.setEventType(StockStatus.STOCK_ADDED.name());
+        eventRecord.setEventId(UUID.randomUUID().getMostSignificantBits());
+        eventRecord.setEntityId(event.getStockDetails().getName());
+        eventRecord.setEventTime(LocalDateTime.now());
+        CompletableFuture<SendResult<String, Object>> future = template.send("stock", eventRecord);
+        future.whenComplete((result, ex) -> {
+            if (ex == null) {
+                System.out.println("Sent message=[" + eventRecord +
+                        "] with offset=[" + result.getRecordMetadata().offset() + "]");
+            } else {
+                System.out.println("Unable to send message=[" +
+                        eventRecord + "] due to : " + ex.getMessage());
+            }
+        });
+    }
+
+    public void addEvent(StockRemovedEvent event) throws JsonProcessingException {
+        EventRecord eventRecord = new EventRecord();
+        eventRecord.setEventData(new ObjectMapper().writeValueAsString(event.getStockDetails()));
+        eventRecord.setEventType(StockStatus.STOCK_REMOVED.name());
+        eventRecord.setEventId(UUID.randomUUID().getMostSignificantBits());
+        eventRecord.setEntityId(event.getStockDetails().getName());
+        eventRecord.setEventTime(LocalDateTime.now());
+        CompletableFuture<SendResult<String, Object>> future = template.send("stock", eventRecord);
+        future.whenComplete((result, ex) -> {
+            if (ex == null) {
+                System.out.println("Sent message=[" + eventRecord +
+                        "] with offset=[" + result.getRecordMetadata().offset() + "]");
+            } else {
+                System.out.println("Unable to send message=[" +
+                        eventRecord + "] due to : " + ex.getMessage());
+            }
+        });
+    }
+
+
+}
+package com.sunlife.eventsourcing;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+@Data
+public class EventRecord {
+    private long eventId;
+    private String eventType;
+    private String entityId;
+    private String eventData;
+    private LocalDateTime eventTime;
+}
+package com.sunlife.eventsourcing;
+
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.serializer.JsonSerializer;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+public class KafkaProducerConfig {
+
+    @Bean
+    public NewTopic createTopic() {
+        return new NewTopic("stock", 3, (short) 1);
+    }
+
+    @Bean
+    public Map<String, Object> producerConfig() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                "localhost:9092");
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                JsonSerializer.class);
+        return props;
+    }
+
+    @Bean
+    public ProducerFactory<String, Object> producerFactory() {
+        return new DefaultKafkaProducerFactory<>(producerConfig());
+    }
+
+    @Bean
+    public KafkaTemplate<String, Object> kafkaTemplate() {
+        return new KafkaTemplate<>(producerFactory());
+    }
+
+}
+package com.sunlife.eventsourcing;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import lombok.Data;
+@Entity
+@Data
+public class Stock {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+    private String name;
+    private int quantity;
+    private String userName;
+
+}
+package com.sunlife.eventsourcing;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class StockAddedEvent implements StockEvent {
+    private  Stock stockDetails;
+}
+package com.sunlife.eventsourcing;
+
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.gson.Gson;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@RestController
+public class StockController {
+    @Autowired
+    private EventService eventService;
+
+    @Autowired
+    private StockRepo repo;
+
+    @PostMapping("/stock")
+    public void addStock(@RequestBody Stock stockRequest) throws JsonProcessingException {
+        StockAddedEvent event = StockAddedEvent.builder().stockDetails(stockRequest).build();
+
+        List<Stock> existingStockList = repo.findByName(stockRequest.getName());
+
+        if (existingStockList != null && existingStockList.size() > 0) {
+
+            Stock existingStock = existingStockList.get(0);
+
+            int newQuantity = existingStock.getQuantity() + stockRequest.getQuantity();
+
+            existingStock.setQuantity(newQuantity);
+            existingStock.setUserName(stockRequest.getUserName());
+            repo.save(existingStock);
+
+        } else {
+
+            repo.save(stockRequest);
+        }
+        eventService.addEvent(event);
+    }
+
+    @DeleteMapping("/stock")
+    public void removeStock(@RequestBody Stock stock) throws JsonProcessingException {
+        StockRemovedEvent event = StockRemovedEvent.builder().stockDetails(stock).build();
+        int newQuantity = 0;
+
+        List<Stock> existingStockList = repo.findByName(stock.getName());
+
+        if (existingStockList != null && existingStockList.size() > 0) {
+
+            Stock existingStock = existingStockList.get(0);
+
+            newQuantity = existingStock.getQuantity() - stock.getQuantity();
+
+            if (newQuantity <= 0) {
+                repo.delete(existingStock);
+            } else {
+                existingStock.setQuantity(newQuantity);
+                existingStock.setUserName(stock.getUserName());
+                repo.save(existingStock);
+            }
+        }
+        eventService.addEvent(event);
+    }
+
+    @GetMapping("/stock")
+    public List<Stock> getStock(@RequestParam("name") String name) throws JsonProcessingException {
+        return repo.findByName(name);
+    }
+
+
+}
+package com.sunlife.eventsourcing;
+
+public interface StockEvent {
+}
+package com.sunlife.eventsourcing;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Builder
+@Data
+public class StockRemovedEvent implements StockEvent {
+    private Stock stockDetails;
+}
+
+package com.sunlife.eventsourcing;
+
+import java.util.List;
+
+import org.springframework.data.repository.CrudRepository;
+
+public interface StockRepo extends CrudRepository<Stock, Integer> {
+
+    List<Stock> findByName(String name);
+}
+package com.sunlife.eventsourcing;
+
+public enum StockStatus {
+    STOCK_ADDED,
+    STOCK_REMOVED
+}
+....................................................................................
+			 Spring cloud Stream
+....................................................................................
+
+Spring Cloud Stream is a framework for building highly scalable event-driven microservices connected with shared messaging systems.
+
+The framework provides a flexible programming model built on already established and familiar Spring idioms and best practices, including support for persistent pub/sub semantics, consumer groups, and stateful partitions.
+
+		
+				Spring Cloud Stream
+					 |
+ 			    Kafka Google Pub sub RabbitMQ			
+ 
+
+
+Binder Implementations:
+ Binder is bridge api which connects Messaging providers.
+
+RabbitMQ
+
+Apache Kafka
+Kafka Streams
+Amazon Kinesis
+Google PubSub (partner maintained)
+Solace PubSub+ (partner maintained)
+Azure Event Hubs (partner maintained)
+Azure Service Bus (partner maintained)
+AWS SQS (partner maintained)
+AWS SNS (partner maintained)
+Apache RocketMQ (partner maintained)
+
+The core building blocks of Spring Cloud Stream are:
+
+1.Destination Binders: Components responsible to provide integration with the external messaging systems.
+
+Destination Bindings: Bridge between the external messaging systems and application code (producer/consumer) provided by the end user.
+
+Message: The canonical data structure used by producers and consumers to communicate with Destination Binders (and thus other applications via external messaging systems).
+
+
+Spring Cloud Stream application Types
+
+1.Sources - java.util.function.Supplier
+2.Sinks -java.util.function.Consumer
+3.Processors -java.util.function.Function
+
+Modern Spring Cloud Stream bindings works with functional Style rather than annotation style.
+
+
+Two types of programming.
+
+1.Publising events automatically
+2.Publishing events manually.
+
+
+1.Publising events automatically
+
+=>Publisher 
+=>Consumer
+=>Processor
+
+Note: 
+ The publisher,consumers,processor are represented as "Functional Bean".
+
+By default we dont need any configurations related to connecting kakfa, providing topic name....
+
+package com.sunlife;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+
+import java.util.UUID;
+import java.util.function.Supplier;
+
+@SpringBootApplication
+public class SpringCloudStreamApp {
+
+	public static void main(String[] args) {
+		SpringApplication.run(SpringCloudStreamApp.class, args);
+	}
+
+	//producer which sends messages via functional
+	//stringSupplier is function name , if you dont configure, then function name would be topic
+	//name
+	@Bean
+	public Supplier<UUID> stringSupplier(){
+		return ()->{
+			 var uuid= UUID.randomUUID();
+			 return uuid;
+		};
+	}
+
+}
+
+When you run this code, automatically the spring creates topic and starts publishing message into kafka - stream....
+
+
+#Stream Configuration
+spring:
+  cloud:
+    function:
+      definition: stringSupplier;stringConsumer
+    stream:
+      bindings:
+        stringSupplier-out-0:
+          destination: randomUUid-topic
+        stringConsumer-in-0:
+          destination: randomUUid-topic
+        stockEvent-out-0:
+          destination: inventory-topic
+#Bindiner(Kafka) Configuration
+package com.sunlife;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.stream.function.StreamBridge;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/publish")
+public class StockController {
+
+    @Autowired
+    private StreamBridge streamBridge;
+
+    @PostMapping
+    public String publish(@RequestBody Stock stock){
+            streamBridge.send("stockEvent-out-0",stock);
+        return "Message Published";
+
+    }
+}
+package com.sunlife;
+
+public class Stock {
+    private String id;
+    private String status;
+
+    public Stock(String id, String status) {
+        this.id = id;
+        this.status = status;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+}
+.....................................................................................
+				Data Management
+
+Core Pattern:
+1.Database Per Service Pattern
+2.Shared Database
+
+DataBase Per Service:
+.....................
+
+Context:
+ You are building microservice app.
+ Services need to persit data into some kind of databases
+ For eg OrderService stores data into OrderDatabase , Customer Stores data into  Customer Database
+
+
+Problem:
+  What is the db arch in a microservice app?
+
+
+Forces: (Issues you must address when you solve a problem)
+
+=>Services must be lossly coupled so that they can be developed,deployed and scaled independently.
+
+=>Some business transactions must enforce invariants that span multiple services. For example, the Place Order use case must verify that a new Order will not exceed the customer’s credit limit. Other business transactions, must "update data" owned by multiple services. - Update Operation across multiple services and multiple databases
+
+=>some business transactions need to query data that is owned by multiple services. For example, the View Available Credit use must query the Customer to find the creditLimit and Orders to calculate the total amount of the open orders -Select Data across multiple services and multiple databases
+
+=>Some queries must join data that is owned by multiple services. For example, finding customers in a particular region and their recent orders requires a join between customers and orders = Select data across multiple data bases and services
+
+=>Databases must sometimes be replicated and sharded in order to scale
+
+
+=>Different services have different data storage requirements. For some services, a relational database is the best choice. Other services might need a NoSQL database such as MongoDB, which is good at storing complex, unstructured data, or Neo4J, which is designed to efficiently store and query graph data
+
+Solution:
+=>Keep each microservice’s persistent data private to that service and accessible only via its API. 
+=>A service’s transactions only involve its database (Local Transactions)
+
+=>The service’s database is effectively part of the implementation of that service.  It cannot be accessed directly by other services.
+
+=>Storage options:
+  1.Private-tables-per-service – each service owns a set of tables that must only be accessed by that service
+  2.Schema-per-service – each service has a database schema that’s private to that service
+  3.Database-server-per-service – each service has it’s own database server.
+
+
+Resulting context
+
+Advantages:
+ 1.Helps ensure that the services are loosely coupled. Changes to one service’s    database does not impact any other services.
+
+ 2.Each service can use the type of database that is best suited to its needs. For       example, a service that does text searches could use ElasticSearch. A service that    manipulates a social graph could use Neo4j.
+
+DisAdvantages:
+ 
+ 1.Implementing business transactions that span multiple services is not straightforward. 
+ 2.Distributed transactions are best avoided because of the CAP theorem.
+ 3.Moreover, many modern (NoSQL) databases don’t support them.
+ 4.Implementing queries that join data that is now in multiple databases is challenging.
+ 5.Complexity of managing multiple SQL and NoSQL databases
+
+
+If you select "Data Per Service"
+
+Each Service ===> Single Database - Recommended
+
+Challanges
+ =>Transactions Management - UPDATE,DELETE,INSERT
+ =>Query Data =>Select,Joins
+
+Solution:
+ Transactions patterns
+
+SAGA
+ -2PC -Not Recommend
+ -Choreography
+ -Orchestration
+
+Advanced Transaction:
+ Transactional OutputBox
+
+Query:
+ CQRS Patterns
+ API Compostion
+
+           All DATA base Patterns built on the top of EventSourcing
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

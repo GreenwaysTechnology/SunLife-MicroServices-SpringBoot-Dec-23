@@ -1,0 +1,14 @@
+#Stream Configuration
+spring:
+  cloud:
+    function:
+      definition: stringSupplier;stringConsumer
+    stream:
+      bindings:
+        stringSupplier-out-0:
+          destination: randomUUid-topic
+        stringConsumer-in-0:
+          destination: randomUUid-topic
+        stockEvent-out-0:
+          destination: inventory-topic
+#Bindiner(Kafka) Configuration
