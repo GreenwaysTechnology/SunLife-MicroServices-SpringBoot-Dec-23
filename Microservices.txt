@@ -1659,9 +1659,27 @@ public enum StockStatus {
 			 Spring cloud Stream
 ....................................................................................
 
+What is Spring Cloud Stream?
+
+ Spring Cloud Stream is a Spring module that merges Spring Integration (which implements integration patterns) with Spring Boot.
+The goal of this module is to allow the developer to focus solely on the business logic of event-driven applications, without worrying about the code to handle different types of message systems.
+
+In fact, with Spring Cloud Stream, you can write code to produce/consume messages on Kafka, but the same code would also work if you used RabbitMQ, AWS Kinesis, AWS SQS, Azure EventHubs, etc!
+
+
 Spring Cloud Stream is a framework for building highly scalable event-driven microservices connected with shared messaging systems.
 
 The framework provides a flexible programming model built on already established and familiar Spring idioms and best practices, including support for persistent pub/sub semantics, consumer groups, and stateful partitions.
+
+Spring Cloud Stream from Spring Cloud Function:
+
+Spring Cloud Stream is based on Spring Cloud Function. Business logic can be written through simple functions.
+
+The classic three interfaces of Java are used:
+
+Supplier: a function that has output but no input; it is also called producer, publisher, source .
+Consumer: a function that has input but no output, it is also called subscriber or sink.
+Function: a function that has both input and output, is also called processor
 
 		
 				Spring Cloud Stream
@@ -1906,14 +1924,96 @@ Query:
            All DATA base Patterns built on the top of EventSourcing
 
 
+SAGA: To manage database Transactions across multiple services...
+.....
+
+A service command typically needs to create/update/delete aggregates(rows) in the database and send messages/events to a message broker.
+
+Saga works based on Event sourcing pattern.
+
+For example, a service that participates in a saga needs to update business entities and send messages/events. Similarly, a service that publishes a domain event must update an aggregate and publish an event.
 
 
 
+2PC:
+  2 Phase Commit :
+	Two-phase commit enables you to update multiple, disparate databases within a single transaction, and commit or roll back changes as a single unit-of-work.
+
+SAGA implementation:
+ 
+There are two design patterns :
+
+1.Choreograph
+2.Orchestration
+ Both pattern is used to send and receive messages via brokers 
+ Biz transactions are coordinated via message bus.
+
+
+1.Choreograph:
+  Choreography - each local transaction publishes domain events that trigger local transactions in other services
+
+Flow:
+1.The Order Service receives the POST /orders request and creates an Order in a PENDING state - in the local database
+2.It then emits an Order Created event
+3.The Customer Service’s event handler attempts to reserve credit
+4.It then emits an event indicating the outcome
+5.The OrderService’s event handler either approves or rejects the Order
+
+Choregraphy pattern every service responsibility to send and listen messages.
+
+Program:
+=>H2 Database.
+=>spring-Data-jpa
+=>Spring-cloud-stream,spring-kafka,spring-cloud-stream-kafka-binder
+=>Reactive Programming -WebFlux
+
+java Reactive and Programming
+1.Rxjava
+2.Project Reactor..
+3.SmallRye Mutiny
+
+Three types of events
+1.Data Event
+2.Error Event
+3.complete
+
+Project uses two objects to represent producer...
+
+1.Mono - He can publish only one event(data,error
+2.Flux - He can publish 0...N events
+
+Operators:
+ apis to process the event stream - filtering,transaction,creation,aggreation...
+
+What is webflux?
+  It is spring wrapper for "Project reactor".
+
+Why WebFlux?
+
+Your web app is completly reactive 
+Your web app runs in non blocking env - netty...
+
+................
+Project Structure:
+ common-dto
+ order-service
+ inventory-service
+ payment-service
 
 
 
+The business workflow :
 
+1.order-services receives a POST request for a new order
+2.It places an order request in the DB in the ORDER_CREATED state and raises an event
+3.payment-service listens to the event, confirms about the credit reservation
+4.inventory-service also listens to the order-event and conforms the inventory reservation
+5.order-service fulfills order or rejects the order based on the credit & inventory reservation status.
 
+https://www.youtube.com/watch?v=ojDs2ep990A - Advanced Spring cloud stream.
+
+common-dto
+ -dto and event objects
 
 
 
