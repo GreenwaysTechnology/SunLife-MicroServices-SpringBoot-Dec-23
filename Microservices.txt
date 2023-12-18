@@ -273,13 +273,7 @@ Requriment for building online food delivery:
 5.The application handles requests (HTTP requests and messages) by executing business logic; accessing a database; exchanging messages with other systems; and returning a HTML/JSON/XML response. 
 
 6.There are logical components corresponding to different functional areas of the application.	
-....................................................................................
-			How to design and implment microservices
 
-The microservices is all about practices followed,implemented, and tested in real time production grade applications in various companies like amazon,netflix,google,microsoft.
-
-The many community people joined togther who formed the pattern language in order to begin development of Microservices - Microservice pattern language.
-.....................................................................................
 			  Pattern Languages
 .....................................................................................
 
@@ -315,16 +309,16 @@ Resulting Context:
 
 The result context section of a pattern describes the consequences(advantages and disadvantages) of applying the pattern.
 
-It consistts of three parts
+It consists of three parts
 
-1.Befnifits: 
+1.Benefits: 
    The benefits of the pattern, including the forces that have been resolved.
 2.Drawbacks:
    The drawbacks of the pattern, including, un resolved forces.
 3.Issues
-    The new Prolmes that have been introduced by applying the pattern.
+    The new Problems that have been introduced by applying the pattern.
 
-The result ing context provides a more complete and less biased view of the solution
+The resulting context provides a more complete and less biased view of the solution
 which enables better decisions.
 
 Related Patterns:
@@ -2014,21 +2008,349 @@ https://www.youtube.com/watch?v=ojDs2ep990A - Advanced Spring cloud stream.
 
 common-dto
  -dto and event objects
+.....................................................................................				 Saga - Orchestration
+.....................................................................................
+
+Fundamentally Orchestration and Choreograph both purpose is same, to manage transactions across multiple services.
+
+Choreograph is pattern through which you can send and receive messages.
+
+Drawbackback of Choreograph:
+
+1.biz logic of the service like updating databases and messaging logic like publishing messages are tightly coupled- both code in the same place.
 
 
+Orchestration:
+
+Orchestration-based saga where the Service uses a "saga orchestrator" to orchestrate events.
+Orchestration can be done by third party tools or java programs...
+
+Saga Orchestration decouples of handling events from biz logic where choreography couples handling events and biz logic together.
+
+Orchestrator Work flow:
+
+1.The Order Service receives the POST /orders request and creates the Create Order saga orchestrator
+2.The saga orchestrator creates an Order in the PENDING state
+3.It then sends a Reserve Credit command to the Customer Service
+4.The Customer Service attempts to reserve credit
+5.It then sends back a reply message indicating the outcome
+6.The saga orchestrator either approves or rejects the Order
+
+Implementation:
+ -Common-dto
+ -Inventory-service
+ -Order-orchestrator - Orchestrator as Java program
+ -order-service
+ -payment-service
+.....................................................................................
+				Transactional Outbox Pattern
+....................................................................................
+ As we have seen before, we can enable transactions for database to achive higher consistency.
+
+Can we enable transactions for Message flows like kafka?
+
+No!
+
+One of the APIs in the microservice does two operations:
+
+1.update a database
+2.send a message to another service Via Message brokers(like kafka)
 
 
+How can you make sure both are transactional?
 
 
+In other words if database update fails don’t send the message to the other service and if message sending fails rollback the database update?
 
 
+In Spring you handle transactions using the @Transactional annotation.
+
+But this works only at the database level.
+
+If you are sending a message to another service preferrable in an asynchronous way then the annotation wont work.
+
+Distributed Transactions (XA) may not work since messaging systems like Apache Kafka don’t support them.
+
+A solution to the above problem is the "Transactional Outbox pattern".
+
+1.An Use Case explaining the problem
+...................................
+2.What is transactional outbox pattern?
+
+   2.1.Transactional outbox with Polling publisher
+   2.2.Transactional outbox with Transaction Log Trailing
+
+3.Implementation in Spring Boot
 
 
+An Use Case:
+Let’s say you run a coffee shop.
+
+You have an application to take orders for coffee.
+
+Customer places an order at the entrance and then goes to the barista to collect it.
+
+You have a bunch of microservices to manage your coffee shop.
+
+And one of them is to take orders .
+
+The “Order Service” stores an order in database as soon as an order is placed and sends an asynchronous message to the barista “Delivery Service” to prepare the coffee and give it to the customer.
+
+You have kept the delivery part to the barista(“delivery service”) as asynchronous for scalability.
 
 
+Now,
+
+Let’s say a customer places an order and order is inserted into the order database.
+
+While sending the message to the “Delivery Service” some exception happens and the message is not sent.
+
+The order entry is still in the database though leaving the system in an inconsistent state.
+
+Ideally you would roll back the entry in the orders database since placing the order and sending an event to the delivery service are part of the same transaction.
+
+But how do you implement transaction across two different types of systems :
 
 
+A database and A messaging service.
+
+Such a scenario is quite common in the microservices world.
+
+If the two operations are database operations it would be easy to handle the transaction. Use @Transactional annotation provided by Spring Data.
+
+Here the scenario is different.
+
+And hence the solution is:
+
+			"Use Transactional Outbox pattern"
+
+What is Transactional Outbox pattern?
+
+Transactional Outbox pattern mandates that you create an “Outbox” table to keep track of the asynchronous messages. For every asynchronous message, you make an entry in the “Outbox” table. You then perform the database operation and the “Outbox” insert operations as part of the same transaction.
+
+This way if an error happens in any of the two operations the transaction is rolled back.
+
+You then pick up the messages from the ‘Outbox’ and deliver it to your messaging system like Apache Kafka.
+
+Also once the message is delivered delete the entry from the Outbox so that it is not processed again.
+
+So let’s say you perform two different operations in the below order as part of a single transaction:
+
+1.Database Insert
+2.Asynchronous Message (Insert into Outbox table)
+
+If step 1 fails anyway exception will be thrown and step 2 won’t happen.
+
+If step 1 succeeds and step 2 (insert into outbox table) fails the transaction will be rolled back.
 
 
+If the order of operations are reversed:
+
+Asynchronous Message (Insert into Outbox table)
+Database Insert
+Then if step 1 fails similar to the previous case exception will be thrown and step 2 won’t happen.
+
+If step 1 succeeds and step 2 (Database Insert) fails then the transaction will be rolled back and the entry in Outbox table will be removed. Since it is part of the same transaction , the insert into Outbox table earlier was not committed and hence the asynchronous message won’t be sent.
 
 
+In our case ,
+
+When a customer places an order , we make an entry in Orders database and another entry in Outbox table.
+
+Once the above transaction completes we pick up the messages from the Outbox table and send it the “Delivery Service”. Notice that if some error happens and the “Delivery Service” did not receive the message , the messaging system like Apache Kafka will automatically retry to deliver the message.
+
+
+That summarizes the Outbox pattern.
+
+Now there are two ways to pick up the messages from the Outbox and deliver it to the external service.
+
+1.Polling Publisher
+2.Transaction Log tailing.
+Let’s see each of them.
+
+
+Polling Publisher
+
+	In Polling Publisher pattern you periodically poll the “Outbox” table , pick the messages , deliver to the messaging service and delete the entry from the Outbox table.
+
+You can use Spring Batch or Spring Scheduler (@Scheduled annotation) to implement this.
+
+The drawback with this method is polling is an expensive operation.
+
+Also you block the table while polling it.
+
+And if you use a non relational database like MongoDB polling could get complicated.
+
+
+Transaction Log tailing:
+
+Hence the second way – “Transaction Log Trailing” is a better option to implement this .
+
+Transaction Log Trailing
+In Transaction Log Trailing instead of polling the table , you read the database logs.
+
+Every commit made to a table is written to a database transaction log.
+
+So instead of reading the table you read the log as soon as an entry is made .
+
+This way the table is not blocked and you can avoid expensive database polling.
+...................................................................................
+	  Transaction outbox pattern with Transaction Log tailing pattern
+		     (CDC- Change Data Capture)
+.....................................................................................
+
+Tools like “Debezium” help in capturing database transaction logs.
+
+
+Let’s see how to implement Transactional Outbox pattern with Transaction Log Tailing in Spring Boot using Debezium.
+
+Implementation:
+Let’s create two microservices:
+
+“orderservice”
+
+“deliveryservice”
+
+Let’s create an order through orders service. And then let’s publish an event that order has been created. Both these need to be part of the same transaction.
+
+
+delivery service will read this event and perform the necessary delivery logic. We will not deal with the delivery logic , we will just read the message sent by order service for this example.
+
+
+The order service
+Create a spring boot application with spring-boot-starter-web , spring-boot-starter-data-jpa and mysql-connector-java (since we are connecting to mysql database in this example)
+
+...................
+
+Steps:
+1.Start Zookeeper
+2.Start Kafka
+3.Start a MySQL database
+4.Start a MySQL command line client
+5.Start Kafka Connect
+
+Steps:
+Apache Zookeeper:
+
+
+docker run -it --rm --name zookeeper -p 2181:2181 -p 2888:2888 -p 3888:3888 quay.io/debezium/zookeeper:1.9
+
+
+Apache Kafka:
+
+
+docker run -it --rm --name kafka -p 9092:9092 --link zookeeper:zookeeper quay.io/debezium/kafka:1.9
+
+MySQL:
+
+
+docker run -it --rm --name mysql -p 3307:3306 -e MYSQL_ROOT_PASSWORD=root mysql
+
+MySQL Client:
+
+1
+docker run -it --rm --name mysqlterm --link mysql --rm mysql sh -c 'exec mysql -h"$MYSQL_PORT_3306_TCP_ADDR" -P"$MYSQL_PORT_3306_TCP_PORT" -uroot -p"$MYSQL_ENV_MYSQL_ROOT_PASSWORD"'
+
+Once you set up MySQL client you can create the order and outbox tables.
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| sys                |
++--------------------+
+
+mysql>create database orders;
+Query OK, 1 row affected (0.01 sec)
+
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| orders             |
+| performance_schema |
+| sys                |
++--------------------+
+
+mysql> create table orders.customer_order(id int AUTO_INCREMENT primary key, name varchar(1000),quantity int);
+Q
+mysql> create table orders.customer_order(id int AUTO_INCREMENT primary key, name varchar(1000),quantity int);
+Query OK, 0 rows affected (0.03 sec)
+
+mysql> create table orders.outbox(id int AUTO_INCREMENT primary key, event varchar(1000),event_id int, payload json , created_at timestamp);
+Query OK, 0 rows affected (0.03 sec)
+
+mysql> use orders;
+
+mysql> show tables;
++------------------+
+| Tables_in_orders |
++------------------+
+| customer_order   |
+| outbox           |
++------------------+
+
+Kafka connector:
+   It is tool used to push data into kafka and from kafka from databases 
+   Kafka connect is a server similar to kafka server.
+
+docker run -it --rm --name connect -p 8083:8083 -e GROUP_ID=1 -e CONFIG_STORAGE_TOPIC=my_connect_configs -e OFFSET_STORAGE_TOPIC=my_connect_offsets -e STATUS_STORAGE_TOPIC=my_connect_statuses --link zookeeper:zookeeper --link kafka:kafka --link mysql:mysql quay.io/debezium/connect:1.9
+
+Once the Kafka Connector is set up , you need to activate debezium connector.
+
+To do that you just need to hit a connector REST API 
+
+http://localhost:8083/connectors/
+
+In order to connect , database from kafka connector , we need to configure connector(jdbc drivers)
+
+{
+    "name": "orders-connecter",
+    "config": {
+        "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+        "tasks.max": "1",
+        "database.hostname": "host.docker.internal",
+        "database.port": "3307",
+        "database.user": "root",
+        "database.password": "root",
+        "database.server.id": "100",
+        "database.server.name": "orders_server",
+        "database.include.list": "orders",
+        "table.include.list":"orders.outbox",
+        "database.history.kafka.bootstrap.servers": "kafka:9092",
+        "database.history.kafka.topic": "schema_changes.orders",
+        "transforms": "unwrap",
+        "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState"
+    }
+}
+
+Use post man or any http tool to push this configuration to kafka connect 
+
+after pushing you can verify:
+
+http://localhost:8083/connectors/
+
+[
+"orders-connecter"
+]
+
+As you notice in the request , I have included “orders” database and then “orders.outbox” table for transaction log trailing in the above request using “database.include.list” and “table.include.list” properties respectively. You give your own name to the database server (orders_server in the above case).
+
+Once you make the request , Kafka will start sending events for every database operation on the table outbox. Debezium will keep reading the database logs and send those events to Apache Kafka through Kafka Connector.
+
+
+Now you need to listen for this event in your “deliveryservice” for the topic “orders_server.orders.outbox” (server name + table name)
+
+
+As you notice in the request , I have included “orders” database and then “orders.outbox” table for transaction log trailing in the above request using “database.include.list” and “table.include.list” properties respectively. You give your own name to the database server (orders_server in the above case).
+
+Once you make the request , Kafka will start sending events for every database operation on the table outbox. Debezium will keep reading the database logs and send those events to Apache Kafka through Kafka Connector.
+
+
+Now you need to listen for this event in your “deliveryservice” for the topic “orders_server.orders.outbox” (server name + table name)

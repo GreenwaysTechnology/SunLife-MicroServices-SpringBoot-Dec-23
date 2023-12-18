@@ -1,0 +1,11 @@
+spring:
+  jpa:
+    database: mysql
+  datasource:
+    driverClassName: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3307/orders
+    username: root
+    password: root
+  sql:
+    init:
+      platform: org.hibernate.dialect.MySQL5Dialect
