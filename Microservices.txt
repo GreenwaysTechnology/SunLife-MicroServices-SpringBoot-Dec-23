@@ -2078,7 +2078,7 @@ A solution to the above problem is the "Transactional Outbox pattern".
 2.What is transactional outbox pattern?
 
    2.1.Transactional outbox with Polling publisher
-   2.2.Transactional outbox with Transaction Log Trailing
+   2.2.Transactional outbox with Transaction Log Tailing
 
 3.Implementation in Spring Boot
 
@@ -2354,3 +2354,1064 @@ Once you make the request , Kafka will start sending events for every database o
 
 
 Now you need to listen for this event in your “deliveryservice” for the topic “orders_server.orders.outbox” (server name + table name)
+
+
+The Delivery Service:
+Create a spring boot application with spring-kafka dependency.
+
+Here is a sample pom.xml:
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.6.7</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>delivery</artifactId>
+    <version>1.0.0</version>
+    <name>kafkaconsumer</name>
+    <description>Demo project for Transactional Messaging</description>
+    <properties>
+        <java.version>11</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+ 
+     
+    </dependencies>
+ 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+ 
+</project>
+Ezoic
+Create a configuration class to configure the Kafka Server details and the deserializer (how to deserialize the message sent by Kafka):
+
+package com.example.delivery;
+ 
+import java.util.HashMap;
+import java.util.Map;
+ 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+ 
+@Configuration
+@EnableKafka
+public class ReceiverConfig {
+ 
+    @Bean
+    public Map<String, Object> consumerConfigs() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "host.docker.internal:9092");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "json");
+ 
+        return props;
+    }
+ 
+    @Bean
+    public ConsumerFactory<String, KafkaMessage> consumerFactory() {
+        return new DefaultKafkaConsumerFactory<>(consumerConfigs(), new StringDeserializer(),
+                new JsonDeserializer<>(KafkaMessage.class));
+    }
+ 
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, KafkaMessage> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, KafkaMessage> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory());
+ 
+        return factory;
+    }
+ 
+}
+Create a service class which listens for the messages sent by Kafka:
+
+package com.example.delivery;
+ 
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Service;
+ 
+@Service
+public class DeliveryService {
+ 
+     
+    @KafkaListener(topics = "orders_server.orders.outbox")
+    public void receive(KafkaMessage message) {
+         
+         
+        System.out.println(message);
+    }
+}
+
+Notice the topic we are listening for. We are just printing the message here. In real time we would be performing the delivery logic here.
+
+
+Here is the KafkaMessage domain object which represent the Kafka Message:
+
+package com.example.delivery;
+ 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+ 
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class KafkaMessage {
+     
+     
+    private PayLoad payload;
+ 
+    public PayLoad getPayload() {
+        return payload;
+    }
+ 
+    public void setPayload(PayLoad payload) {
+        this.payload = payload;
+    }
+ 
+    @Override
+    public String toString() {
+        return "KafkaMessage [payload=" + payload + "]";
+    }
+     
+     
+     
+ 
+}
+ 
+@JsonIgnoreProperties(ignoreUnknown = true)
+ class PayLoad{
+     
+     
+    int id;
+     
+    String event;
+     
+    @JsonProperty("event_id")
+    int eventId;
+     
+     
+    String payload;
+     
+    @JsonProperty("created_at")
+    String createdAt;
+ 
+    public int getId() {
+        return id;
+    }
+ 
+    public void setId(int id) {
+        this.id = id;
+    }
+ 
+    public String getEvent() {
+        return event;
+    }
+ 
+    public void setEvent(String event) {
+        this.event = event;
+    }
+ 
+    public int getEventId() {
+        return eventId;
+    }
+ 
+    public void setEventId(int eventId) {
+        this.eventId = eventId;
+    }
+ 
+    public String getPayload() {
+        return payload;
+    }
+ 
+    public void setPayload(String payload) {
+        this.payload = payload;
+    }
+ 
+    public String getCreatedAt() {
+        return createdAt;
+    }
+ 
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+ 
+    @Override
+    public String toString() {
+        return "PayLoad [id=" + id + ", event=" + event + ", eventId=" + eventId + ", payload=" + payload
+                + ", createdAt=" + createdAt + "]";
+    }
+     
+     
+     
+}
+Kafka Message contains a lot of info , we are just interested in the “payload” object and it is mapped in the above domain object.
+
+Since the above app interacts with Kafka and I used docker images to build those , I built a docker image for this service as well (it gets complicated to interact with Kafka inside a docker container from outside).
+
+The below command builds a docker image for the above spring boot app.
+
+The below command builds a docker image for the above spring boot app.
+
+mvnw clean install spring-boot:build-image
+It created an image under the name deliveryservice:1.0.0
+
+
+The below command runs the docker image:
+
+
+docker run -it --rm deliveryservice:1.0.0
+Testing
+Now let’s test our changes.
+
+
+As of now , we have seen database insert,delete,update with transaction patterns
+ -saga,transcational outbox.
+.....................................................................................
+				.....................................................................................
+			 CQRS - Command Query Responsibility Segregation
+................................................................................
+
+Context:
+You have applied the Microservices architecture pattern and the Database per service pattern.
+    As a result, it is no longer straightforward to implement queries that join data from multiple services. 
+    Also, if you have applied the Event sourcing pattern then the data is no longer easily queried.
+
+Soultion:
+ 
+Most of application are CURD in nature. when we design these applications, we create entity classes and corresponding repository classes for CURD operations.
+
+Read and write:
+ Most of the applications read more , than write...
+
+Read vs write traffic point of view, read traffic is always heavy.
+Command Query Responsibility Segregation:
+........................................
+
+Command - modifes the data and does not return any Anything(Write)
+Query  - does not modify the data but returns data(Read)
+
+You are going to break application into microservice of an exsiting service into based on CQRS Pattern..
+
+
+                             OrderApplication
+       				 |
+	  OrderCommandApp(command)        OrderQueryApp(Query)
+
+Database Design for OrderApplication:
+.....................................
+
+Level-1
+
+ OrderApplication
+     |
+ OrderDatabase
+
+Level-2
+			 OrderApplication
+       				 |
+	  OrderCommandApp(command)        OrderQueryApp(Query)
+				 |
+		---------------------------------------
+				|
+			   Order database
+
+Level-3 : Database Per service pattern
+
+
+			 OrderApplication
+       				 |
+	  OrderCommandApp(command)        OrderQueryApp(Query)
+				 |
+		----------------   ----------------------
+		|                               |
+            orderMaster                      OrderHistory
+
+			    EventSourcing
+			 Transactional outbox
+				|
+			      Kafka
+
+
+CQRS implementation:
+Please have a look at code base.
+....................................................................................
+				Service Communications
+....................................................................................
+
+Services are mini applications, which are collection of objects, each object has apis.
+APIs are entry and exit point of application.
+
+
+Types of APIS:
+RPI - Remote Procudure invocation.
+In object oriented programming objects talk each via api calls.
+
+Objects easily collbarate within same runtime. - local method invocation.
+
+API style:
+
+1.blocking style or synchrous style
+  any how object is hosted by a thread, when you call method on that thread, thread   is blocked until the result is available
+
+2.non blocking style or async style
+   thread will not be blocked by caller object..
+
+3.Reactive style
+    Enabling data streaming feature, using event driven model,caller and callee is decoupled , they talk via message passing..
+
+ Reactive with non blocking is good choice.
+
+In spring , you can use Project reactor framework to enable this option.   
+
+
+Objects easily collbarate within same runtime. - local method invocation.
+..........................................................................
+
+Remote Method calls:
+
+ if objects are in different runtime, they need,network protocal... 
+ object must understand how to send and receive messages via network.
+ Most popular network protocal is internet protocals such tcp/ip,http,http/2...
+
+REST end point is most populare implementation called webservices...
+
+
+WebServices communication:
+..........................
+
+Internal communiction
+
+   In Micro services, applications could be exposed by HTTP API, within organzation
+any how they need to  talk each other, in order to exchange messages.
+methods can be sync or async or reactive...
+
+External communication
+
+ User interface applications,used by external users like human beginings or automated AI systems.. 
+  Which is called external communication.
+
+
+RPI Technology:
+ 1.REST/SOAP
+ 2.GraphQL 
+ 3.Apache Thrift
+RPC
+ GRpc
+
+Message oriented Middleware Technology
+ 1.Kafka 
+ 2.RabbitMQ
+
+Other Technologies
+ Mail service,file services...
+
+Microservices can use any coimbation of api and communcation style patterns...
+
+rest and message...
+.....................................................................................
+
+	Spring Cloud and Service communications: Microservices Commmunication 			implementation in Spring
+
+
+REST to REST Service Communication:
+..................................
+The Spring Framework provides the following choices for making calls to REST endpoints:
+
+Blocking SyncApi
+..................................................................................
+1.RestTemplate - synchronous client with template method API.
+
+2.RestClient - synchronous client with a fluent API.
+................................................................................
+NonBlocking Api:
+3.WebClient - non-blocking, reactive client with fluent API.
+
+Interface Based:
+
+4.HTTP Interface - annotated interface with generated, dynamic proxy implementation.
+
+5.FeignClient Interface- declarative rest api calls -  eq HTTP Interface.
+....................................................................................
+			   RestTemplate
+
+
+Callee: The service to be invoked:
+helloservice
+
+pom.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.2.0</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.resttemplate</groupId>
+	<artifactId>rest-template</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>rest-template</name>
+	<description>Demo project for Spring Boot</description>
+	<properties>
+		<java.version>17</java.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+application.properties
+server.port=8081
+
+Controller:
+package com.hello;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class GreeterController {
+
+    @GetMapping("/hello")
+    public String sayHello(){
+        return "Hello";
+    }
+}
+
+package com.hello;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class HelloserviceApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(HelloserviceApplication.class, args);
+	}
+
+}
+Run this application:
+................................................................................
+Caller: The service is going to call helloservice:
+pom.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.2.0</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.resttemplate</groupId>
+	<artifactId>rest-template</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>rest-template</name>
+	<description>Demo project for Spring Boot</description>
+	<properties>
+		<java.version>17</java.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+application.properties
+
+server.port=8080
+
+Main:
+package com.resttemplate;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestTemplate;
+
+@SpringBootApplication
+public class RestTemplateApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(RestTemplateApplication.class, args);
+	}
+	@Bean
+	RestTemplate restTemplate() {
+		return new RestTemplate();
+	}
+}
+
+Controller:
+package com.resttemplate;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
+
+@RestController
+public class HelloController {
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @GetMapping("/greet")
+    public ResponseEntity<String> sayGreet(){
+        String url ="http://localhost:8081/hello";
+        ResponseEntity<String> response=  restTemplate.getForEntity(url,String.class);
+        return response;
+    }
+}
+
+Run this app too:
+
+http://localhost:8080/greet
+.....................................................................................
+			 RestClient- Modern Sync way of calling Rest api
+....................................................................................
+
+It is simple and alternate way to Rest Template.
+
+The RestClient is a synchronous HTTP client that offers a modern, fluent API. It offers an abstraction over HTTP libraries that allows for convenient conversion from Java object to HTTP request, and creation of objects from the HTTP response.
+
+Note: RestClient is available only Spring boot 3.2.x version.
+
+RestClient has two programming style:
+
+1.Fluent Api style
+2.Interface based Style
+
+
+Eg: Fluent API style:
+.....................
+
+Controller:
+package dev.mycom.restclient.post;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/posts")
+public class PostController {
+
+    private final PostService postService;
+
+    public PostController(PostService postService) {
+        this.postService = postService;
+    }
+
+    @GetMapping("")
+    List<Post> findAll() {
+        return postService.findAll();
+    }
+
+    @GetMapping("/{id}")
+    Post findById(@PathVariable Integer id) {
+        return postService.findById(id);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    Post create(@RequestBody Post post) {
+        return postService.create(post);
+    }
+
+    @PutMapping("/{id}")
+    Post update(@PathVariable Integer id, @RequestBody Post post) {
+        return postService.update(id, post);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable Integer id) {
+        postService.delete(id);
+    }
+
+}
+
+Service:
+package dev.mycom.restclient.post;
+
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
+
+@Service
+public class PostService {
+
+    private final RestClient restClient;
+
+    public PostService() {
+        restClient = RestClient.builder()
+                .baseUrl("https://jsonplaceholder.typicode.com")
+                .build();
+    }
+
+    List<Post> findAll() {
+        return restClient.get()
+                .uri("/posts")
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<Post>>() {});
+    }
+
+    Post findById(int id) {
+        return restClient.get()
+                .uri("/posts/{id}", id)
+                .retrieve()
+                .body(Post.class);
+    }
+
+    Post create(Post post) {
+        return restClient.post()
+                .uri("/posts")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(post)
+                .retrieve()
+                .body(Post.class);
+    }
+
+
+    Post update(Integer id, Post post) {
+        return restClient.put()
+                .uri("/posts/{id}", id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(post)
+                .retrieve()
+                .body(Post.class);
+    }
+
+
+    void delete(Integer id) {
+        restClient.delete()
+                .uri("/posts/{id}", id)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+}
+
+
+Interface Based Programming:
+
+In Fluent api, you have to write code using api chaining
+
+return restClient.get()
+                .uri("/posts")
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<Post>>() {});
+
+
+Interface based programming, the above code written by spring automatically.
+
+Interface based programming is more readable than fluent api, but you have to write extra interface.
+
+Write Interface:
+package dev.mycom.restclient.client;
+
+import dev.mycom.restclient.post.Post;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.service.annotation.GetExchange;
+import org.springframework.web.service.annotation.PostExchange;
+import org.springframework.web.service.annotation.PutExchange;
+
+import java.util.List;
+
+public interface JsonPlaceholderService {
+
+    @GetExchange("/posts")
+    List<Post> findAll();
+
+    @GetExchange("/posts/{id}")
+    Post findById(@PathVariable Integer id);
+
+    @PostExchange("/posts")
+    Post create(@RequestBody Post post);
+
+    @PutExchange("/posts/{id}")
+    Post update(@PathVariable Integer id, @RequestBody Post post);
+
+    @DeleteMapping("/posts/{id}")
+    void delete(@PathVariable Integer id);
+
+}
+
+Create bean for that interface
+package dev.mycom.restclient;
+
+import dev.mycom.restclient.client.JsonPlaceholderService;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.support.RestClientAdapter;
+import org.springframework.web.service.invoker.HttpServiceProxyFactory;
+
+@SpringBootApplication
+public class Application {
+
+	public static void main(String[] args) {
+		SpringApplication.run(Application.class, args);
+	}
+
+	@Bean
+    JsonPlaceholderService jsonPlaceholderService() {
+		RestClient client = RestClient.create("https://jsonplaceholder.typicode.com");
+	    HttpServiceProxyFactory factory = HttpServiceProxyFactory
+				.builderFor(RestClientAdapter.create(client))
+				.build();
+	    return factory.createClient(JsonPlaceholderService.class);
+	}
+
+}
+
+Inject that Interface into Service or controller:
+
+Controller:
+package dev.mycom.restclient.post;
+
+import dev.mycom.restclient.client.JsonPlaceholderService;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/posts")
+public class PostController {
+
+    private final JsonPlaceholderService postService;
+
+    public PostController(JsonPlaceholderService postService) {
+        this.postService = postService;
+    }
+    @GetMapping("")
+    List<Post> findAll() {
+        return postService.findAll();
+    }
+
+    @GetMapping("/{id}")
+    Post findById(@PathVariable Integer id) {
+        return postService.findById(id);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    Post create(@RequestBody Post post) {
+        return postService.create(post);
+    }
+
+    @PutMapping("/{id}")
+    Post update(@PathVariable Integer id, @RequestBody Post post) {
+        return postService.update(id, post);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable Integer id) {
+        postService.delete(id);
+    }
+
+}
+.....................................................................................
+			Spring Cloud OpenFeign
+.....................................................................................
+What is OpenFeign:
+  Feign makes writing java http clients easier
+	This project provides OpenFeign integrations for Spring Boot apps through autoconfiguration and binding to the Spring Environment and other Spring programming model idioms.
+
+
+FeignClient:
+   It is old way of writing interface based implementation alternate to "restTemplate".
+
+RestClient === restTemplate
+RestClientInterface = FeignClient
+
+Depedency:
+	<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+	</dependency>
+	<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-openfeign</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-loadbalancer</artifactId>
+		</dependency>
+
+
+Interface:
+package com.openfeign;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@FeignClient(value = "hello-service",url="http://localhost:8081")
+public interface HelloServiceFeignClient {
+    //api
+    @GetMapping("/hello")
+    ResponseEntity<String> hello();
+}
+
+EnableOpenFeign:
+package com.openfeign;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+@SpringBootApplication
+@EnableFeignClients
+public class OpenfeignApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(OpenfeignApplication.class, args);
+	}
+
+}
+
+Controller:
+package com.openfeign;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class FeignController {
+
+    @Autowired
+    private HelloServiceFeignClient helloServiceFeignClient;
+
+    @GetMapping("/greet")
+    public ResponseEntity<String> hello(){
+        String helloResponse = helloServiceFeignClient.hello().getBody();
+        return ResponseEntity.status(200).body(helloResponse);
+    }
+}
+
+Testing:
+http://localhost:8082/greet
+.....................................................................................
+				WebClient
+....................................................................................
+
+Reactive style of calling rest api:
+
+1.NonBlocking
+2.Async
+3.EventDriven-stream supported..
+4.FluentApi style
+
+if you want to use webclient your project must be spring-webflux enabled
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.2.0</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.webclient</groupId>
+	<artifactId>restwebclient</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>restwebclient</name>
+	<description>Demo project for Spring Boot</description>
+	<properties>
+		<java.version>17</java.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.projectreactor</groupId>
+			<artifactId>reactor-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+
+Config:
+package com.webclient;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.reactive.function.client.WebClient;
+
+@Configuration
+public class WebClientConfig {
+
+    @Bean
+    public WebClient webClient(){
+
+        WebClient webClient = WebClient.builder()
+                .baseUrl("http://localhost:8081")
+                .build();
+        return  webClient;
+    }
+}
+
+Controller
+package com.webclient;
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+@RestController
+public class WebClientController
+{
+     private final WebClient webClient;
+
+     @Autowired
+     public WebClientController(WebClient webClient){
+         this.webClient=webClient;
+     }
+    @GetMapping("/greet")
+    public Mono<String> sayGreet(){
+
+        return webClient.get().uri("/hello").retrieve().bodyToMono(String.class);
+    }
+}
+package com.webclient;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class RestwebclientApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(RestwebclientApplication.class, args);
+	}
+
+}
+.....................................................................................
+....................................................................................
+			 Micro service Internal Communication
+				 Challanges
+...................................................................................
+
+Traditionally, monolith applications are deployed in fixed locations (hosts and ports)
+
+Now a days, we deploy our apps in virtualized enviroments such as cloud and containers, where there is no fixed locations like hosts(ip address) and port
+
+So services , cant talk each other because the locations of those services are highly dynmic. in order to solve the problem, microservices proposed a design pattern 
+.....................................................................................
+			    Service Registry and  Discovery
+.....................................................................................
+
+Registry:
+ It is a software which stores all service informations within microservices.
+
+
+
+
+
+
+
+
+
