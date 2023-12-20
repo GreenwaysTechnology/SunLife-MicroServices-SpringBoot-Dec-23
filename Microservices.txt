@@ -3407,6 +3407,709 @@ So services , cant talk each other because the locations of those services are h
 Registry:
  It is a software which stores all service informations within microservices.
 
+Discovery:
+  It is locating services from the registry server.
+
+Service Registry and Discovery is used only in "Rest services"...
+
+1.Netflix Eureka
+   Eureka is a RESTful (Representational State Transfer) service that is primarily used in the AWS cloud for the purpose of discovery, load balancing and failover of middle-tier servers. It plays a critical role in Netflix mid-tier infra.
+
+2.Hashicorp "Consul"
+   It is most populare Service registry,distributed configuration server..
+
+3.ETCD 
+   Distributed reliable key-value store for the most critical data of a distributed system
+
+
+Spring cloud provides api to register and deregister with Registery servers with annotations and dependencies...
+
+Service Registry and discovery works well with all "REST Communitations" - restTemplate,RestClient,RestClientInterface,feign Client,WebClient...
+
+Programming Steps:
+
+1.Registry Server  eg : Consul,etcd,Apache zooKeeper
+2.SpringBoot RegistryServerApp - Connecting to Registry servers - Optional in few Envs
+3.Your Caller App
+4.Your Callee App
+
+Service Registry with Netflix Eureka:
+
+Registry :
+  Eureka server is available as a separate server, we can use spring boot application to act Eureka Server.
+  Spring Boot Offers Inmemory Eureka Server
+
+pom.xml
+	<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+		</dependency>
+
+
+
+Main:
+ in order to convert spring boot app as "Eurka server" -@EnableEurekaServer
+
+package com.registry.server;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.eureka.server.EnableEurekaServer;
+
+@SpringBootApplication
+@EnableEurekaServer
+public class NetflixeurekaserverApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(NetflixeurekaserverApplication.class, args);
+	}
+
+}
+
+configuration: application.properties
+server.port=8761
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+logging.level.com.netflix.eureka=OFF
+logging.level.com.netflix.discovery=OFF
+
+Eurka server is running at port 8761.
+....................................................................................
+
+Callee: hello-service Spring boot app
+
+application.properties
+eureka.client.serviceUrl.defaultZone=http://localhost:8761/eureka/
+spring.application.name=hello-service
+eureka.client.instance.preferIpAddress = true
+server.port=${PORT:0}
+eureka.instance.instance-id=${spring.application.name}:${vcap.application.instance_id:${spring.application.instance_id:${random.value}}}
+
+
+
+here application name is used by eurka server to register and identify other services.
+
+eureka.client.serviceUrl.defaultZone-  This service to be connected with service registry.
+eureka.client.instance.preferIpAddress=true - do you want ip address
+server.port=${PORT:0} - Dynamic port
+
+eureka.instance.instance-id -  used by registry server to identify services uniquly.
+
+
+pom.xml
+	<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+			<version>4.1.0</version>
+		</dependency>
+
+
+Main:
+package com.hello;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+public class HelloserviceApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(HelloserviceApplication.class, args);
+	}
+
+}
+
+Run the Application:
+
+1.You can watch Eurka registry dasboard and have look service instance been registered
+Now other services can look this service.
+
+...................
+
+Caller Server:
+..............
+
+Caller can use any rest client apis - restTemplate,RestClient,WebClient,FeignClient.
+
+RestTemplate:
+  calling service via registry with Rest Template.
+
+pom.xml
+   <dependency>
+
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+            <version>4.1.0</version>
+        </dependency>
+
+application.properties
+
+#server.port=8080
+server.port=8083
+eureka.client.serviceUrl.defaultZone=http://localhost:8761/eureka/
+spring.application.name=hello-resttemplate-service
+eureka.client.instance.preferIpAddress = true
+eureka.instance.instance-id=${spring.application.name}:${spring.application.instance_id:${random.value}}
+
+Main:
+package com.resttemplate;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestTemplate;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+public class RestTemplateApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(RestTemplateApplication.class, args);
+	}
+	@Bean
+	RestTemplate restTemplate() {
+		return new RestTemplate();
+	}
+}
+
+How to communicate "helloService" via registry Server?
+....
+
+Controller :
+package com.resttemplate;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+
+@RestController
+public class HelloController {
+
+    @Autowired
+    private RestTemplate restTemplate;
+    @Autowired
+    private DiscoveryClient client;
+
+    @GetMapping("/greet")
+    public ResponseEntity<String> sayGreet() {
+        URI uri = client.getInstances("hello-service").stream().map(si -> si.getUri()).findFirst()
+                .map(s -> s.resolve("/hello")).get();
+        System.out.println(uri.getHost() + uri.getPort());
+        ResponseEntity<String> response = restTemplate.getForEntity(uri, String.class);
+        return response;
+    }
+}
+...................................................................................
+			Rest Client and Service Registry
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Note:
+ No changes in the basic configuration:
+
+HelloController:
+package dev.mycom.restclient.post;
+
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+import java.util.List;
+
+@RestController
+public class HelloController {
+
+    private final RestClient restClient;
+    @Autowired
+    private DiscoveryClient client;
+
+    public HelloController() {
+        restClient = RestClient.builder()
+                .baseUrl("")
+                .build();
+    }
+
+    @GetMapping("/greet")
+    public String sayGreet() {
+        URI uri = client.getInstances("hello-service").stream().map(si -> si.getUri()).findFirst()
+                .map(s -> s.resolve("/hello")).get();
+        System.out.println(uri.getHost() + uri.getPort());
+        return restClient.get()
+                .uri(uri)
+                .retrieve()
+                .body(String.class);
+    }
+}
+.....................................................................................
+			 OpenFegin and Service Registry Configuration
+
+.....................................................................................
+
+Basic Configuration remains Same:
+
+Interface Configuration:
+package com.openfeign;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@FeignClient(value = "hello-service")
+public interface HelloServiceFeignClient {
+    //api
+    @GetMapping("/hello")
+    ResponseEntity<String> hello();
+}
+.....................................................................................
+			 Web Client - Service Registry and Discovery
+.....................................................................................
+Note:
+ All basic configuration:
+
+Controller:
+package com.webclient;
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+import java.net.URI;
+
+@RestController
+public class WebClientController {
+    private final WebClient webClient;
+    @Autowired
+    private DiscoveryClient client;
+
+    @Autowired
+    public WebClientController(WebClient webClient) {
+        this.webClient = webClient;
+    }
+
+    @GetMapping("/greet")
+    public Mono<String> sayGreet() {
+        URI uri = client.getInstances("hello-service").stream().map(si -> si.getUri()).findFirst().map(s -> s.resolve("/hello")).get();
+        System.out.println(uri.getHost() + uri.getPort());
+        return webClient.get().uri(uri).retrieve().bodyToMono(String.class);
+    }
+}
+.....................................................................................
+			 Service Registry with Consul
+.....................................................................................
+
+Steps:
+1.You need to run consul server.
+  You can setup consul server with docker or standalone...
+
+1.docker run --rm --name consul -p 8500:8500 -p 8501:8501 consul:1.7 agent -dev -ui -client=0.0.0.0 -bind=0.0.0.0 --https-port=8501
+
+
+Hello-Service:
+pom.xml
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-consul-discovery</artifactId>
+			<version>4.1.0</version>
+		</dependency>
+
+
+application.properties
+spring.application.name=hello-service
+server.port=${PORT:0}
+
+application.yml
+spring:
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        instanceId: ${spring.application.name}:${vcap.application.instance_id:${spring.application.instance_id:${random.value}}}
+
+
+Caller: restclient
+
+application.properties
+#server.port=8080
+server.port=8083
+spring.application.name=rest-client-service
+
+application.yml
+spring:
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+
+
+Controller:
+package dev.mycom.restclient.post;
+
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+import java.util.List;
+
+@RestController
+public class HelloController {
+
+    @LoadBalanced
+    private final RestClient restClient;
+    @Autowired
+    private DiscoveryClient client;
+
+    public HelloController() {
+        restClient = RestClient.builder()
+                .baseUrl("")
+                .build();
+    }
+
+    @GetMapping("/greet")
+    public String sayGreet() {
+        URI uri = client.getInstances("hello-service").stream().map(si -> si.getUri()).findFirst()
+                .map(s -> s.resolve("/hello")).get();
+        System.out.println(uri.getHost() + uri.getPort());
+        return restClient.get()
+                .uri(uri)
+                .retrieve()
+                .body(String.class);
+    }
+}
+
+Types of Service Registry:
+
+client side discovery - Only we have seen
+server side discovery - Using external routers/gateways....
+
+.....................................................................................
+		Service Discovery and Registry with Load Balancing
+			Scalability and Load Balancing
+			   (High availability)
+.....................................................................................
+n Enterprise applications, many users may access in a second, like one thousand users per ms.
+
+if you have hosted your application on single server, server cant respond to all users on time.
+
+Thats why we need to scale our app.
+
+There two types scalability:
+
+1.With vertical scaling (“scaling up”), you're adding more compute power to your existing instances/nodes.
+
+2.In horizontal scaling (“scaling out”), you get the additional capacity in a system by adding more instances to your environment, sharing the processing and memory workload across multiple devices
+
+Micro services can be scalled horzontally - we can run the same microservices n-number of times, when we run apps n-numbers we need load balancer to select instance.
+
+
+Load Balancer:
+ One of the most promienent reasons of evolution from monolith to microservices  arch is horizontal scalling.
+
+It helps to improve performance incase of higher traffic for a particular service.
+
+We need to create multiple instances of the service in order to handle the large traffic of requests.
+
+Load balancing referes to efficiently distributing the incoming network traffic across a group of backend servers( multiple instances of the services).
+
+
+Types of load balancing:
+
+1.server-side loading balancing
+2.client-side load balancing.
+
+
+1.Server-side load balancer:
+  In server side load balancing, the instances of services are deployed on multiple servers and then a load balancer is put in front of them. It is generally a hardware load balancer.
+  
+  All requests are initally routed via server side load balancer to the application.
+
+2.Client side/software load balancer:
+ 
+  Software load balancer is front gate to the applications(microservice)
+  Software load balancer is embeded as part of service registry
+
+
+Client side load balancing:
+ Spring boot with Netflix , who offers load balancer called "Ribbon".
+
+Ribbon:
+->Client side load balancer
+->it offers falut tolearance..
+
+
+Implementation:
+Using Eurka Server:
+
+Same Configuration like above
+
+HelloService:
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+			<version>4.1.0</version>
+		</dependency>
+
+
+package com.hello;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+public class HelloserviceApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(HelloserviceApplication.class, args);
+	}
+
+}
+
+Eurka Instance :
+
+package com.hello;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class GreeterController {
+    @Value("${eureka.instance.instance-id}")
+    private String instanceId;
+
+    @GetMapping("/hello")
+    public String sayHello() {
+        System.out.println(instanceId);
+        return "Hello =>" + instanceId;
+    }
+}
+
+.............................................................................
+
+
+Loadbalancer COnfiguration:
+https://docs.spring.io/spring-cloud-commons/reference/spring-cloud-commons/loadbalancer.html
+
+
+............
+
+Caller:
+package com.resttemplate;
+
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+    //https://docs.spring.io/spring-cloud-commons/reference/spring-cloud-commons/loadbalancer.html
+@Configuration
+public class SampleConfig {
+    @LoadBalanced
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+application.properties
+
+#server.port=8080
+server.port=8083
+eureka.client.serviceUrl.defaultZone=http://localhost:8761/eureka/
+spring.application.name=hello-resttemplate-service
+eureka.client.instance.preferIpAddress = true
+eureka.instance.instance-id=${spring.application.name}:${spring.application.instance_id:${random.value}}
+${spring.application.instance_id:${random.value}}
+
+Main:
+package com.resttemplate;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestTemplate;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+public class RestTemplateApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(RestTemplateApplication.class, args);
+    }
+
+
+}
+HelloController:
+package com.resttemplate;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.ServiceInstance;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+
+@RestController
+public class HelloController {
+
+    @Autowired
+    private RestTemplate restTemplate;
+    @Autowired
+    private DiscoveryClient client;
+
+    @GetMapping("/greet")
+    public ResponseEntity<String> sayGreet() {
+        String url = "http://hello-service/hello";
+        String helloResponse = restTemplate.getForObject(url, String.class);
+        return ResponseEntity.status(200).body(helloResponse);
+    }
+}
+
+Testing:
+
+Run hello service one or more times:
+
+E:\session\SunLife\ServiceRegistryAndDiscovery\loadbalancing\helloservice> mvn spring-boot:run
+
+E:\session\SunLife\ServiceRegistryAndDiscovery\loadbalancing\helloservice> mvn spring-boot:run
+E:\session\SunLife\ServiceRegistryAndDiscovery\loadbalancing\helloservice> mvn spring-boot:run
+
+E:\session\SunLife\ServiceRegistryAndDiscovery\loadbalancing\helloservice> mvn spring-boot:run
+
+client Side:
+http://localhost:8083/greet
+
+Response:
+Hello =>hello-service:bd9e7966b51df422bf9e3205a52361b9
+
+Just refresh the screen , you can see instance ids are different , that means load balancer is working fine.
+....................................................................................
+				 API GateWay
+			     Spring Cloud Gateway
+...................................................................................
+
+What is api gate Way?
+
+single point of entry point for back end services
+
+Role of gate ways:
+  -Cross cutting concerns
+     authentication and security
+     load balancing 
+     service discovery
+     caching
+
+						    |Post service  ----Db
+  Client------------------|Spring Cloud Gateway-----|Comments Service --Db
+
+
+There are three microservices
+
+1.gateway
+2.post and comments 
+
+gateway:
+
+<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-gateway</artifactId>
+		</dependency>
+
+Gateway configurations:
+1.functional way - by code
+2.configuration file -application.yml or application.properties
+
+application.yml
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: posts-route
+          uri: ${POSTS_ROUTE_URI:http://localhost:8081}
+          predicates:
+            - Path=/posts/**
+          filters:
+            - PrefixPath=/api
+            - AddResponseHeader=X-Powered-By, DanSON Gateway Service
+        - id: comments-route
+          uri: ${COMMENTS_ROUTE_URI:http://localhost:8080}
+          predicates:
+            - Path=/comments/**
+          filters:
+            - PrefixPath=/api
+            - AddResponseHeader=X-Powered-By, DanSON Gateway Service
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+..
+YOu can run any back end applicaiton like comments and posts - please refere the application..
+....................................................................................
+				Reslience Patterns
+.....................................................................................
+
+What if the service is very slow, if service is unavailable..
+
+There are different type of problems and each problem can be solved by different patterns.
+
+1.bulk head
+2.timeout-Timelimtter
+3.RateLimitter
+4.Retry
+5.CircuitBreaker
+
+Spring cloud has now integrated there is a lib called "resilence4j".
+
+How to implement reslience4J in Spring boot - Spring cloud?
+
+1.if you want circuit breaker there are two implemention
+
+1.spring cloud CircuitBreaker - Which is from spring team
+2.Reslience4J integration with Spring- all patterns with more advanced properties.
 
 
 
